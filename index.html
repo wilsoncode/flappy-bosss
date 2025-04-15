@@ -668,20 +668,7 @@
         console.log("Game ready. Initial state:", gameState);
         drawBackground();
         loadImages();
-        const initialLoadTimeout = setTimeout(() => {
-            if (gameState === STATES.LOADING) {
-                console.warn("Initial image processing timeout. Forcing checkImagesReady.");
-                if (!juuboImgReady) {
-                    juuboImg.hasError = true;
-                    juuboImgReady = true;
-                }
-                if (!avocadoboImgReady) {
-                    avocadoboImg.hasError = true;
-                    avocadoboImgReady = true;
-                }
-                checkImagesReady();
-            }
-        }, 7000);
+        // Removed the setTimeout fallback for image loading.
 
     </script>
 </body>
