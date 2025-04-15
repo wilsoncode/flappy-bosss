@@ -621,6 +621,20 @@
                 if (birdY + BIRD_HEIGHT > gameCanvas.height - 30) {
                     birdY = gameCanvas.height - 30 - BIRD_HEIGHT;
                 }
+
+                // Temporarily disable input for 2 seconds
+                gameCanvas.removeEventListener('mousedown', handleInput);
+                gameCanvas.removeEventListener('touchstart', handleInput);
+                gameOverMessageOverlay.removeEventListener('mousedown', handleInput);
+                gameOverMessageOverlay.removeEventListener('touchstart', handleInput);
+
+                setTimeout(() => {
+                    gameCanvas.addEventListener('mousedown', handleInput);
+                    gameCanvas.addEventListener('touchstart', handleInput, { passive: true });
+                    gameOverMessageOverlay.addEventListener('mousedown', handleInput);
+                    gameOverMessageOverlay.addEventListener('touchstart', handleInput, { passive: true });
+                }, 2000);
+
                 // Show the restart button
                 const restartButton = document.getElementById('restartButton');
                 restartButton.style.visibility = 'visible';
