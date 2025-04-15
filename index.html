@@ -238,6 +238,14 @@
             let gameLoopId = null;
             let lastFlapTime = 0; // Timestamp of the last successful flap
 
+            //------------------------------------------------------------------
+            // Bird Tilt Variables
+            //------------------------------------------------------------------
+            let birdTilt = 0; // Angle of tilt in degrees
+            const MAX_TILT_UP = -20; // Maximum tilt angle upwards
+            const MAX_TILT_DOWN = 20; // Maximum tilt angle downwards
+            const TILT_SPEED = 2; // Speed of tilt adjustment
+
             //----------------------------------------------------------------------
             // Image Loading & Character Data
             //----------------------------------------------------------------------
@@ -322,12 +330,20 @@
                 const fallbackColor = selectedCharacterData.fallbackColor;
                 const currentY = (gameState === STATES.START) ? gameCanvas.height / 2 - BIRD_HEIGHT / 2 : birdY;
                 const imageLoaded = img.complete && !img.hasError && img.naturalWidth > 0;
+
+                ctx.save(); // Save the current canvas state
+                ctx.translate(BIRD_X_POSITION + BIRD_WIDTH / 2, currentY + BIRD_HEIGHT / 2); // Move to bird's center
+                ctx.rotate((birdTilt * Math.PI) / 180); // Rotate the canvas by birdTilt degrees
+                ctx.translate(-(BIRD_X_POSITION + BIRD_WIDTH / 2), -(currentY + BIRD_HEIGHT / 2)); // Move back
+
                 if (imageLoaded) {
                     ctx.drawImage(img, BIRD_X_POSITION, currentY, BIRD_WIDTH, BIRD_HEIGHT);
                 } else {
                     ctx.fillStyle = fallbackColor;
                     ctx.fillRect(BIRD_X_POSITION, currentY, BIRD_WIDTH, BIRD_HEIGHT);
                 }
+
+                ctx.restore(); // Restore the canvas state
             }
 
             /** Draws the background */
@@ -403,9 +419,17 @@
             function updateBird() {
                 birdVelocity += GRAVITY;
                 birdY += birdVelocity;
+
                 if (birdY < 0) {
                     birdY = 0;
                     birdVelocity = 0;
+                }
+
+                // Adjust bird tilt based on velocity
+                if (birdVelocity < 0) {
+                    birdTilt = Math.max(birdTilt - TILT_SPEED, MAX_TILT_UP);
+                } else {
+                    birdTilt = Math.min(birdTilt + TILT_SPEED, MAX_TILT_DOWN);
                 }
             }
 
