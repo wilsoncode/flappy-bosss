@@ -542,12 +542,39 @@
                 restartButton.style.opacity = '0';
             }
 
-            /** Ends the game, shows game over screen */
+            //------------------------------------------------------------------
+            // High Score Tracking
+            //------------------------------------------------------------------
+            let highScore = 0; // Variable to store the highest score in the session
+            const highScoreElement = document.createElement('p'); // Create high score element once
+            highScoreElement.style.marginTop = '10px';
+            highScoreElement.style.fontWeight = '600';
+            highScoreElement.style.fontSize = '1em';
+            highScoreElement.style.textShadow = '1px 1px 3px rgba(0, 0, 0, 0.5)';
+            gameOverMessageOverlay.appendChild(highScoreElement); // Append it once
+
+            /** Updates the high score if the current score exceeds it */
+            function updateHighScore() {
+                if (score > highScore) {
+                    highScore = score;
+                }
+            }
+
+            /** Updates the high score and current score display */
+            function updateScoreDisplay() {
+                highScoreElement.textContent = `High Score: ${highScore}`;
+                finalScoreDisplay.textContent = score; // Update current session score
+            }
+
+            //------------------------------------------------------------------
+            // Modify gameOver function to include high score update and display
+            //------------------------------------------------------------------
             function gameOver() {
                 if (gameState === STATES.GAME_OVER) return;
                 console.log("Game Over! Final Score:", score);
                 gameState = STATES.GAME_OVER;
-                finalScoreDisplay.textContent = score;
+                updateHighScore(); // Update the high score
+                updateScoreDisplay(); // Update the score display
                 if (selectedCharacterData) {
                     gameOverImgElement.src = selectedCharacterData.gameOverSrc;
                     console.log("Setting game over image src:", selectedCharacterData.gameOverSrc);
