@@ -17,8 +17,12 @@
             margin: 0;
             font-family: 'Poppins', sans-serif;
             overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            -webkit-tap-highlight-color: transparent;
         }
-
         .game-container {
             position: relative;
             border: 5px solid #a0d2eb;
@@ -27,13 +31,10 @@
             box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
             background-color: #e0f2fe;
         }
-
         canvas {
             display: block;
             background-color: #b3e5fc;
         }
-
-        /* General Overlay Styling */
         .overlay {
             position: absolute;
             top: 0;
@@ -55,37 +56,35 @@
             transition: opacity 0.4s ease, visibility 0.4s ease;
             padding: 20px;
             box-sizing: border-box;
+            cursor: pointer;
         }
-
         .overlay.visible {
             visibility: visible;
             opacity: 1;
         }
-
         .overlay h2 {
             margin-top: 0;
             margin-bottom: 15px;
             font-weight: 600;
             font-size: 1.8em;
-            text-shadow: 2px 2px 5px rgba(0,0,0,0.6);
+            text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.6);
         }
-
         .overlay p {
             margin: 8px 0;
             font-size: 0.9em;
-             text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
         }
-
-        /* Character Selection Specific Styles */
         #characterSelection h2 {
-             margin-bottom: 25px;
+            margin-bottom: 25px;
+        }
+        #characterSelection {
+            cursor: default;
         }
         #loadingMessage {
             font-style: italic;
             font-size: 0.8em;
             margin-top: 15px;
         }
-
         .character-options {
             display: flex;
             justify-content: space-around;
@@ -93,7 +92,6 @@
             width: 100%;
             margin-bottom: 20px;
         }
-
         .character-choice {
             cursor: pointer;
             padding: 15px;
@@ -107,10 +105,10 @@
             pointer-events: none;
             opacity: 0.7;
         }
-         .character-choice.enabled {
+        .character-choice.enabled {
             pointer-events: auto;
             opacity: 1;
-         }
+        }
         .character-choice:hover.enabled {
             background-color: rgba(255, 255, 255, 0.25);
             border-color: #fff;
@@ -123,20 +121,16 @@
             border-radius: 5px;
             border: 1px solid rgba(255, 255, 255, 0.2);
         }
-         .character-choice p {
-             font-weight: 600;
-             margin: 0;
-             font-size: 1em;
-         }
-
-         /* Game Over Image Styling */
-         #gameOverCharacterImage {
-             max-width: 80px; /* Adjust size as needed */
-             max-height: 80px; /* Adjust size as needed */
-             margin-bottom: 10px; /* Space between image and "Game Over!" text */
-         }
-
-
+        .character-choice p {
+            font-weight: 600;
+            margin: 0;
+            font-size: 1em;
+        }
+        #gameOverCharacterImage {
+            max-width: 80px;
+            max-height: 80px;
+            margin-bottom: 10px;
+        }
         #score {
             position: absolute;
             top: 20px;
@@ -148,7 +142,6 @@
             text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.7);
             z-index: 5;
         }
-
     </style>
 </head>
 <body>
@@ -164,7 +157,7 @@
                     <p>Juubo</p>
                 </div>
                 <div class="character-choice" id="selectAvocadobo">
-                     <canvas id="avocadoboPreviewCanvas" width="50" height="40"></canvas>
+                    <canvas id="avocadoboPreviewCanvas" width="50" height="40"></canvas>
                     <p>Avocadobo</p>
                 </div>
             </div>
@@ -172,23 +165,56 @@
         </div>
 
         <div id="startMessage" class="overlay">
-             <h2>Flappy Juubo & Bosss Family</h2>
-             <p id="startInstructions">Click or Tap to Start</p>
+            <h2>Flappy Juubo & Bosss Family</h2>
+            <p id="startInstructions">Click or Tap to Start</p>
         </div>
 
         <div id="gameOverMessage" class="overlay">
-            <img id="gameOverCharacterImage" src="" alt="Game Over Character"> <h2>Game Over!</h2>
+            <img id="gameOverCharacterImage" src="" alt="Game Over Character">
+            <h2>Game Over!</h2>
             <p>Score: <span id="finalScore">0</span></p>
             <p>Click or Tap to Restart</p>
         </div>
     </div>
 
     <script>
-        // Get canvas and context
+        //----------------------------------------------------------------------
+        // Configuration & Constants
+        //----------------------------------------------------------------------
+        const BIRD_X_POSITION = 100; // gameCanvas.width / 4;
+        const BIRD_WIDTH = 50;
+        const BIRD_HEIGHT = 40;
+        const PIPE_WIDTH = 70;
+        const PIPE_GAP = 150;
+        const GRAVITY = 0.4;
+        const FLAP_STRENGTH = -7;
+        const PIPE_SPEED = 2.5;
+        const PIPE_SPAWN_RATE = 120; // Frames between pipe spawns
+        const FLAP_COOLDOWN = 250; // Cooldown period in milliseconds
+
+        // --- Placeholder URLs for Game Over Images ---
+        const JUBO_GAMEOVER_IMG_SRC = './juubo_won.jpeg';
+        const AVOCADOBO_GAMEOVER_IMG_SRC = './avocadobo_won.jpeg';
+
+        // --- Base URLs for Playable Character Images ---
+        // --- IMPORTANT: These URLs are likely temporary and may not work reliably. ---
+        const juuboBaseUrl = './juubo.svg';
+        const avocadoboBaseUrl = './avocadobo.svg';
+
+        // Game states Enum
+        const STATES = {
+            LOADING: 'loading',
+            SELECT_CHARACTER: 'select_character',
+            START: 'start',
+            PLAYING: 'playing',
+            GAME_OVER: 'gameOver'
+        };
+
+        //----------------------------------------------------------------------
+        // DOM Elements & Canvas Context
+        //----------------------------------------------------------------------
         const gameCanvas = document.getElementById('gameCanvas');
         const ctx = gameCanvas.getContext('2d');
-
-        // Get DOM elements
         const scoreDisplay = document.getElementById('score');
         const characterSelectionOverlay = document.getElementById('characterSelection');
         const startMessageOverlay = document.getElementById('startMessage');
@@ -199,44 +225,23 @@
         const juuboPreviewCanvas = document.getElementById('juuboPreviewCanvas');
         const avocadoboPreviewCanvas = document.getElementById('avocadoboPreviewCanvas');
         const loadingMessage = document.getElementById('loadingMessage');
-        // Get reference to the new game over image element
         const gameOverImgElement = document.getElementById('gameOverCharacterImage');
 
-
-        // Game constants
-        const BIRD_X_POSITION = gameCanvas.width / 4;
-        const BIRD_WIDTH = 50;
-        const BIRD_HEIGHT = 40;
-        const PIPE_WIDTH = 70;
-        const PIPE_GAP = 150;
-        const GRAVITY = 0.4;
-        const FLAP_STRENGTH = -7;
-        const PIPE_SPEED = 2.5;
-        const PIPE_SPAWN_RATE = 120;
-
-        // --- Placeholder URLs for Game Over Images ---
-        // --- Replace these with your actual image paths ---
-        const JUBO_GAMEOVER_IMG_SRC = './juubo_won.jpeg';
-        const AVOCADOBO_GAMEOVER_IMG_SRC = './avocadobo_won.jpeg';
-
-
-        // Game variables
+        //----------------------------------------------------------------------
+        // Game State Variables
+        //----------------------------------------------------------------------
         let birdY, birdVelocity, score, pipes, frameCount, gameState;
         let gameLoopId = null;
+        let lastFlapTime = 0; // Timestamp of the last successful flap
 
-        // --- Image Loading ---
+        //----------------------------------------------------------------------
+        // Image Loading & Character Data
+        //----------------------------------------------------------------------
         let juuboImgReady = false;
         let avocadoboImgReady = false;
-
         const juuboImg = new Image();
         const avocadoboImg = new Image();
 
-        // --- Store base URLs ---
-        // --- IMPORTANT: These URLs are likely temporary and may not work reliably. ---
-        const juuboBaseUrl = './juubo.svg';
-        const avocadoboBaseUrl = './avocadobo.svg';
-
-        /** Function to attempt loading images */
         function loadImages() {
             const timestamp = Date.now();
             console.log("Attempting to load images with timestamp:", timestamp);
@@ -244,23 +249,52 @@
             avocadoboImg.src = `${avocadoboBaseUrl}?t=${timestamp + 1}`;
         }
 
-        juuboImg.onload = () => { console.log("Juubo image loaded."); juuboImg.hasError = false; juuboImgReady = true; checkImagesReady(); };
-        juuboImg.onerror = () => { console.error("Juubo image failed to load."); juuboImg.hasError = true; juuboImgReady = true; checkImagesReady(); };
-        avocadoboImg.onload = () => { console.log("Avocadobo image loaded."); avocadoboImg.hasError = false; avocadoboImgReady = true; checkImagesReady(); };
-        avocadoboImg.onerror = () => { console.error("Avocadobo image failed to load."); avocadoboImg.hasError = true; avocadoboImgReady = true; checkImagesReady(); };
-
-        // Character Data Structure
-        const characters = {
-            juubo: { name: "Juubo", img: juuboImg, fallbackColor: 'yellow', gameOverSrc: JUBO_GAMEOVER_IMG_SRC },
-            avocadobo: { name: "Avocadobo", img: avocadoboImg, fallbackColor: 'green', gameOverSrc: AVOCADOBO_GAMEOVER_IMG_SRC }
+        juuboImg.onload = () => {
+            console.log("Juubo image loaded.");
+            juuboImg.hasError = false;
+            juuboImgReady = true;
+            checkImagesReady();
         };
+
+        juuboImg.onerror = () => {
+            console.error("Juubo image failed to load.");
+            juuboImg.hasError = true;
+            juuboImgReady = true;
+            checkImagesReady();
+        };
+
+        avocadoboImg.onload = () => {
+            console.log("Avocadobo image loaded.");
+            avocadoboImg.hasError = false;
+            avocadoboImgReady = true;
+            checkImagesReady();
+        };
+
+        avocadoboImg.onerror = () => {
+            console.error("Avocadobo image failed to load.");
+            avocadoboImg.hasError = true;
+            avocadoboImgReady = true;
+            checkImagesReady();
+        };
+
+        const characters = {
+            juubo: {
+                name: "Juubo",
+                img: juuboImg,
+                fallbackColor: 'yellow',
+                gameOverSrc: JUBO_GAMEOVER_IMG_SRC
+            },
+            avocadobo: {
+                name: "Avocadobo",
+                img: avocadoboImg,
+                fallbackColor: 'green',
+                gameOverSrc: AVOCADOBO_GAMEOVER_IMG_SRC
+            }
+        };
+
         let selectedCharacterData = null;
 
-
-        // Game states
-        const STATES = { LOADING: 'loading', SELECT_CHARACTER: 'select_character', START: 'start', PLAYING: 'playing', GAME_OVER: 'gameOver' };
-
-        /** Checks if both images have finished processing */
+        /** Checks if both images have finished processing and updates UI */
         function checkImagesReady() {
             if (juuboImgReady && avocadoboImgReady && gameState === STATES.LOADING) {
                 console.log("Both images processed. Enabling selection.");
@@ -270,11 +304,13 @@
                 selectAvocadoboButton.classList.add('enabled');
                 drawCharacterPreviews();
             } else {
-                 console.log("checkImagesReady called, but not all images ready or not in LOADING state. Juubo:", juuboImgReady, "Avocado:", avocadoboImgReady, "State:", gameState);
+                /* console.log("checkImagesReady called, but not all images ready or not in LOADING state."); */
             }
         }
 
-
+        //----------------------------------------------------------------------
+        // Drawing Functions
+        //----------------------------------------------------------------------
         /** Draws the chosen character or fallback color */
         function drawCharacter() {
             if (!selectedCharacterData) return;
@@ -282,141 +318,358 @@
             const fallbackColor = selectedCharacterData.fallbackColor;
             const currentY = (gameState === STATES.START) ? gameCanvas.height / 2 - BIRD_HEIGHT / 2 : birdY;
             const imageLoaded = img.complete && !img.hasError && img.naturalWidth > 0;
-
-            if (imageLoaded) { ctx.drawImage(img, BIRD_X_POSITION, currentY, BIRD_WIDTH, BIRD_HEIGHT); }
-            else { ctx.fillStyle = fallbackColor; ctx.fillRect(BIRD_X_POSITION, currentY, BIRD_WIDTH, BIRD_HEIGHT); }
+            if (imageLoaded) {
+                ctx.drawImage(img, BIRD_X_POSITION, currentY, BIRD_WIDTH, BIRD_HEIGHT);
+            } else {
+                ctx.fillStyle = fallbackColor;
+                ctx.fillRect(BIRD_X_POSITION, currentY, BIRD_WIDTH, BIRD_HEIGHT);
+            }
         }
 
-        // --- Initialization ---
-        /** Sets up the game state before play starts */
+        /** Draws the background */
+        function drawBackground() {
+            const gradient = ctx.createLinearGradient(0, 0, 0, gameCanvas.height);
+            gradient.addColorStop(0, '#a0d2eb');
+            gradient.addColorStop(1, '#e0f2fe');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, gameCanvas.width, gameCanvas.height);
+            ctx.fillStyle = '#86efac';
+            ctx.fillRect(0, gameCanvas.height - 30, gameCanvas.width, 30);
+            ctx.fillStyle = '#4ade80';
+            ctx.fillRect(0, gameCanvas.height - 30, gameCanvas.width, 5);
+        }
+
+        /** Draws all pipes */
+        function drawPipes() {
+            ctx.fillStyle = '#6ee7b7';
+            ctx.strokeStyle = '#22c55e';
+            ctx.lineWidth = 3;
+            pipes.forEach(pipe => {
+                ctx.fillRect(pipe.x, 0, PIPE_WIDTH, pipe.topHeight);
+                ctx.strokeRect(pipe.x, 0, PIPE_WIDTH, pipe.topHeight);
+                ctx.fillRect(pipe.x, pipe.topHeight + PIPE_GAP, PIPE_WIDTH, gameCanvas.height - pipe.topHeight - PIPE_GAP);
+                ctx.strokeRect(pipe.x, pipe.topHeight + PIPE_GAP, PIPE_WIDTH, gameCanvas.height - pipe.topHeight - PIPE_GAP);
+                drawPipeCap(pipe.x, pipe.topHeight - 10, PIPE_WIDTH);
+                drawPipeCap(pipe.x, pipe.topHeight + PIPE_GAP, PIPE_WIDTH);
+            });
+        }
+
+        /** Draws the cap on a pipe */
+        function drawPipeCap(x, y, width) {
+            ctx.fillStyle = '#6ee7b7';
+            ctx.strokeStyle = '#22c55e';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            if (ctx.roundRect) {
+                ctx.roundRect(x - 5, y, width + 10, 20, [5]);
+            } else {
+                ctx.rect(x - 5, y, width + 10, 20);
+            }
+            ctx.fill();
+            ctx.stroke();
+        }
+
+        /** Draws character previews on the selection screen */
+        function drawCharacterPreviews() {
+            console.log("Drawing previews...");
+            const juuboCtx = juuboPreviewCanvas.getContext('2d');
+            juuboCtx.clearRect(0, 0, juuboPreviewCanvas.width, juuboPreviewCanvas.height);
+            const juuboLoaded = juuboImg.complete && !juuboImg.hasError && juuboImg.naturalWidth > 0;
+            if (juuboLoaded) {
+                juuboCtx.drawImage(juuboImg, 0, 0, juuboPreviewCanvas.width, juuboPreviewCanvas.height);
+            } else {
+                juuboCtx.fillStyle = characters.juubo.fallbackColor;
+                juuboCtx.fillRect(0, 0, juuboPreviewCanvas.width, juuboPreviewCanvas.height);
+            }
+            const avocadoCtx = avocadoboPreviewCanvas.getContext('2d');
+            avocadoCtx.clearRect(0, 0, avocadoboPreviewCanvas.width, avocadoboPreviewCanvas.height);
+            const avocadoLoaded = avocadoboImg.complete && !avocadoboImg.hasError && avocadoboImg.naturalWidth > 0;
+            if (avocadoLoaded) {
+                avocadoCtx.drawImage(avocadoboImg, 0, 0, avocadoboPreviewCanvas.width, avocadoboPreviewCanvas.height);
+            } else {
+                avocadoCtx.fillStyle = characters.avocadobo.fallbackColor;
+                avocadoCtx.fillRect(0, 0, avocadoboPreviewCanvas.width, avocadoboPreviewCanvas.height);
+            }
+        }
+
+        //----------------------------------------------------------------------
+        // Update Functions (Physics & Game Logic)
+        //----------------------------------------------------------------------
+        /** Updates the bird's position based on velocity and gravity */
+        function updateBird() {
+            birdVelocity += GRAVITY;
+            birdY += birdVelocity;
+            if (birdY < 0) {
+                birdY = 0;
+                birdVelocity = 0;
+            }
+        }
+
+        /** Moves pipes, spawns new pipes, checks score, removes old pipes */
+        function updatePipes() {
+            if (gameState !== STATES.PLAYING) return;
+            if (frameCount % PIPE_SPAWN_RATE === 0) {
+                const minHeight = 50;
+                const maxHeight = gameCanvas.height - PIPE_GAP - minHeight - 30;
+                const topHeight = Math.random() * (maxHeight - minHeight) + minHeight;
+                pipes.push({
+                    x: gameCanvas.width,
+                    topHeight: topHeight,
+                    passed: false
+                });
+            }
+            pipes.forEach(pipe => {
+                pipe.x -= PIPE_SPEED;
+            });
+            pipes.forEach(pipe => {
+                const birdCenterX = BIRD_X_POSITION + BIRD_WIDTH / 2;
+                const pipeCenterX = pipe.x + PIPE_WIDTH / 2;
+                if (!pipe.passed && birdCenterX > pipeCenterX) {
+                    score++;
+                    pipe.passed = true;
+                    scoreDisplay.textContent = score;
+                }
+            });
+            pipes = pipes.filter(pipe => pipe.x + PIPE_WIDTH > 0);
+        }
+
+        /** Checks for collisions with ground or pipes */
+        function checkCollisions() {
+            if (gameState !== STATES.PLAYING) return;
+            const birdX = BIRD_X_POSITION;
+            if (birdY + BIRD_HEIGHT > gameCanvas.height - 30) {
+                console.log("Collision: Ground");
+                gameOver();
+                return;
+            }
+            for (const pipe of pipes) {
+                if (birdX < pipe.x + PIPE_WIDTH && birdX + BIRD_WIDTH > pipe.x) {
+                    if (birdY < pipe.topHeight || birdY + BIRD_HEIGHT > pipe.topHeight + PIPE_GAP) {
+                        console.log("Collision: Pipe");
+                        gameOver();
+                        return;
+                    }
+                }
+            }
+        }
+
+        //----------------------------------------------------------------------
+        // Game State Management
+        //----------------------------------------------------------------------
+        /** Initializes game variables and state before starting play */
         function init() {
-             if (gameState !== STATES.SELECT_CHARACTER) { console.log("Init called in unexpected state:", gameState); return; }
-             console.log("Initializing game board...");
-            birdY = gameCanvas.height / 2 - BIRD_HEIGHT / 2; birdVelocity = 0; score = 0; pipes = []; frameCount = 0;
+            if (gameState !== STATES.SELECT_CHARACTER) {
+                console.log("Init called in unexpected state:", gameState);
+                return;
+            }
+            console.log("DEBUG: init() called.");
+            birdY = gameCanvas.height / 2 - BIRD_HEIGHT / 2;
+            birdVelocity = 0;
+            score = 0;
+            pipes = [];
+            frameCount = 0;
             gameState = STATES.START;
-            scoreDisplay.textContent = score; gameOverMessageOverlay.classList.remove('visible');
-            if (gameLoopId) { cancelAnimationFrame(gameLoopId); gameLoopId = null; }
-            pipes = []; frameCount = 0;
-            ctx.clearRect(0, 0, gameCanvas.width, gameCanvas.height); drawBackground(); drawPipes(); drawCharacter();
-             console.log("Game initialized, state:", gameState);
+            scoreDisplay.textContent = score;
+            gameOverMessageOverlay.classList.remove('visible');
+            if (gameLoopId) {
+                console.log("DEBUG: init() cancelling previous game loop.");
+                cancelAnimationFrame(gameLoopId);
+                gameLoopId = null;
+            }
+            pipes = [];
+            frameCount = 0;
+            lastFlapTime = 0; // Reset flap time on init
+            ctx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
+            drawBackground();
+            drawPipes();
+            drawCharacter();
+            console.log("DEBUG: Game initialized, state set to:", gameState);
         }
 
-        // --- Game Loop ---
-        function gameLoop() {
-             if (gameState !== STATES.PLAYING && gameState !== STATES.GAME_OVER) { console.error("Game loop running in unexpected state:", gameState); gameLoopId = null; return; }
-            ctx.clearRect(0, 0, gameCanvas.width, gameCanvas.height); drawBackground();
-            if (gameState === STATES.PLAYING) { updateBird(); updatePipes(); drawPipes(); drawCharacter(); checkCollisions(); frameCount++; }
-            else { drawCharacter(); drawPipes(); } // Draw static final state
-            if (gameState === STATES.PLAYING || gameState === STATES.GAME_OVER) { gameLoopId = requestAnimationFrame(gameLoop); }
-            else { gameLoopId = null; }
-        }
-
-        // --- Background & Pipe Drawing Functions (Unchanged) ---
-         function drawBackground() { const gradient = ctx.createLinearGradient(0, 0, 0, gameCanvas.height); gradient.addColorStop(0, '#a0d2eb'); gradient.addColorStop(1, '#e0f2fe'); ctx.fillStyle = gradient; ctx.fillRect(0, 0, gameCanvas.width, gameCanvas.height); ctx.fillStyle = '#86efac'; ctx.fillRect(0, gameCanvas.height - 30, gameCanvas.width, 30); ctx.fillStyle = '#4ade80'; ctx.fillRect(0, gameCanvas.height - 30, gameCanvas.width, 5); }
-        function drawPipes() { ctx.fillStyle = '#6ee7b7'; ctx.strokeStyle = '#22c55e'; ctx.lineWidth = 3; pipes.forEach(pipe => { ctx.fillRect(pipe.x, 0, PIPE_WIDTH, pipe.topHeight); ctx.strokeRect(pipe.x, 0, PIPE_WIDTH, pipe.topHeight); ctx.fillRect(pipe.x, pipe.topHeight + PIPE_GAP, PIPE_WIDTH, gameCanvas.height - pipe.topHeight - PIPE_GAP); ctx.strokeRect(pipe.x, pipe.topHeight + PIPE_GAP, PIPE_WIDTH, gameCanvas.height - pipe.topHeight - PIPE_GAP); drawPipeCap(pipe.x, pipe.topHeight - 10, PIPE_WIDTH); drawPipeCap(pipe.x, pipe.topHeight + PIPE_GAP, PIPE_WIDTH); }); }
-         function drawPipeCap(x, y, width) { ctx.fillStyle = '#6ee7b7'; ctx.strokeStyle = '#22c55e'; ctx.lineWidth = 3; ctx.beginPath(); if (ctx.roundRect) { ctx.roundRect(x - 5, y, width + 10, 20, [5]); } else { ctx.rect(x - 5, y, width + 10, 20); } ctx.fill(); ctx.stroke(); }
-
-        // --- Update Functions (Unchanged Bird, Modified Pipes) ---
-        function updateBird() { birdVelocity += GRAVITY; birdY += birdVelocity; if (birdY < 0) { birdY = 0; birdVelocity = 0; } }
-        function updatePipes() { if (gameState !== STATES.PLAYING) return; if (frameCount % PIPE_SPAWN_RATE === 0) { const minHeight = 50; const maxHeight = gameCanvas.height - PIPE_GAP - minHeight - 30; const topHeight = Math.random() * (maxHeight - minHeight) + minHeight; pipes.push({ x: gameCanvas.width, topHeight: topHeight, passed: false }); } pipes.forEach(pipe => { pipe.x -= PIPE_SPEED; }); pipes.forEach(pipe => { const birdCenterX = BIRD_X_POSITION + BIRD_WIDTH / 2; const pipeCenterX = pipe.x + PIPE_WIDTH / 2; if (!pipe.passed && birdCenterX > pipeCenterX) { score++; pipe.passed = true; scoreDisplay.textContent = score; } }); pipes = pipes.filter(pipe => pipe.x + PIPE_WIDTH > 0); }
-
-        // --- Collision Detection (Unchanged) ---
-        function checkCollisions() { if (gameState !== STATES.PLAYING) return; const birdX = BIRD_X_POSITION; if (birdY + BIRD_HEIGHT > gameCanvas.height - 30) { console.log("Collision: Ground"); gameOver(); return; } for (const pipe of pipes) { if (birdX < pipe.x + PIPE_WIDTH && birdX + BIRD_WIDTH > pipe.x) { if (birdY < pipe.topHeight || birdY + BIRD_HEIGHT > pipe.topHeight + PIPE_GAP) { console.log("Collision: Pipe"); gameOver(); return; } } } }
-
-        // --- Game State Management (Modified) ---
-        /** Starts the game play */
+        /** Transitions from START to PLAYING and starts the game loop */
         function startGame() {
-            console.log("startGame called. Current state:", gameState);
+            console.log("DEBUG: startGame() called. Current state:", gameState);
             if (gameState === STATES.START) {
-                 console.log("Transitioning from START to PLAYING");
-                 gameState = STATES.PLAYING; startMessageOverlay.classList.remove('visible'); gameOverMessageOverlay.classList.remove('visible');
-                 if (!gameLoopId) { console.log("Starting game loop from startGame..."); gameLoopId = requestAnimationFrame(gameLoop); }
-                 flap();
-            } else { console.log("startGame called in unexpected state:", gameState); }
+                console.log("DEBUG: Transitioning from START to PLAYING");
+                gameState = STATES.PLAYING;
+                startMessageOverlay.classList.remove('visible');
+                gameOverMessageOverlay.classList.remove('visible');
+                if (!gameLoopId) {
+                    console.log("DEBUG: Starting game loop from startGame...");
+                    gameLoopId = requestAnimationFrame(gameLoop);
+                } else {
+                    console.log("DEBUG: Game loop already running?");
+                }
+                flap();
+            } else {
+                console.log("DEBUG: startGame called in unexpected state:", gameState);
+            }
         }
-        /** Restarts the game */
+
+        /** Resets the game state back to loading/character selection */
         function restartGame() {
-             console.log("Restarting game...");
-             selectedCharacterData = null; if (gameLoopId) { cancelAnimationFrame(gameLoopId); gameLoopId = null; }
-             juuboImgReady = false; avocadoboImgReady = false; juuboImg.hasError = false; avocadoboImg.hasError = false;
-             gameState = STATES.LOADING;
-             characterSelectionOverlay.classList.add('visible'); startMessageOverlay.classList.remove('visible'); gameOverMessageOverlay.classList.remove('visible');
-             scoreDisplay.textContent = '0'; loadingMessage.textContent = "Loading character images...";
-             selectJuuboButton.classList.remove('enabled'); selectAvocadoboButton.classList.remove('enabled');
-             // Clear game over image
-             gameOverImgElement.src = '';
-             ctx.clearRect(0, 0, gameCanvas.width, gameCanvas.height); drawBackground();
-             loadImages(); // Trigger image reload
+            console.log("Restarting game...");
+            selectedCharacterData = null;
+            if (gameLoopId) {
+                cancelAnimationFrame(gameLoopId);
+                gameLoopId = null;
+            }
+            juuboImgReady = false;
+            avocadoboImgReady = false;
+            juuboImg.hasError = false;
+            avocadoboImg.hasError = false;
+            lastFlapTime = 0; // Reset flap time on restart
+            gameState = STATES.LOADING;
+            characterSelectionOverlay.classList.add('visible');
+            startMessageOverlay.classList.remove('visible');
+            gameOverMessageOverlay.classList.remove('visible');
+            scoreDisplay.textContent = '0';
+            loadingMessage.textContent = "Loading character images...";
+            selectJuuboButton.classList.remove('enabled');
+            selectAvocadoboButton.classList.remove('enabled');
+            gameOverImgElement.src = '';
+            ctx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
+            drawBackground();
+            loadImages();
         }
-        /** Ends the game */
+
+        /** Ends the game, shows game over screen */
         function gameOver() {
             if (gameState === STATES.GAME_OVER) return;
             console.log("Game Over! Final Score:", score);
             gameState = STATES.GAME_OVER;
             finalScoreDisplay.textContent = score;
-
-            // --- Set Game Over Image based on selected character ---
             if (selectedCharacterData) {
                 gameOverImgElement.src = selectedCharacterData.gameOverSrc;
                 console.log("Setting game over image src:", selectedCharacterData.gameOverSrc);
             } else {
-                gameOverImgElement.src = ''; // Hide if no character somehow
-                 console.log("No selected character data found for game over image.");
+                gameOverImgElement.src = '';
+                console.log("No selected character data found for game over image.");
             }
-
-            gameOverMessageOverlay.classList.add('visible'); // Show overlay AFTER setting image src
-            birdVelocity = 0; if (birdY + BIRD_HEIGHT > gameCanvas.height - 30) { birdY = gameCanvas.height - 30 - BIRD_HEIGHT; }
+            gameOverMessageOverlay.classList.add('visible');
+            birdVelocity = 0;
+            if (birdY + BIRD_HEIGHT > gameCanvas.height - 30) {
+                birdY = gameCanvas.height - 30 - BIRD_HEIGHT;
+            }
         }
 
-        // --- Player Actions (Unchanged) ---
-        function flap() { if (gameState === STATES.PLAYING) { birdVelocity = FLAP_STRENGTH; } else { console.log("Flap ignored, not in PLAYING state."); } }
+        //----------------------------------------------------------------------
+        // Player Actions
+        //----------------------------------------------------------------------
+        /** Makes the character flap upwards */
+        function flap() {
+            // Execute flap without cooldown
+            birdVelocity = FLAP_STRENGTH;
+        }
 
-        // --- Event Listeners (Modified) ---
-        /** Handles all user input */
+        //----------------------------------------------------------------------
+        // Event Handling
+        //----------------------------------------------------------------------
+        /** Handles general taps/clicks/keys based on game state */
         function handleInput() {
-             console.log("Input detected. Current state:", gameState);
-             if (gameState === STATES.LOADING || gameState === STATES.SELECT_CHARACTER) { console.log("Input ignored during loading/selection."); return; }
-             if (gameState === STATES.START) { startGame(); }
-             else if (gameState === STATES.PLAYING) { flap(); }
-             else if (gameState === STATES.GAME_OVER) { restartGame(); }
+            /*console.log("DEBUG: handleInput() called. State:", gameState);*/
+            if (gameState === STATES.LOADING || gameState === STATES.SELECT_CHARACTER) {
+                console.log("Input ignored during loading/selection.");
+                return;
+            }
+            if (gameState === STATES.START) {
+                console.log("DEBUG: handleInput() detected START state, calling startGame()...");
+                startGame();
+            } else if (gameState === STATES.PLAYING) {
+                flap();
+            } else if (gameState === STATES.GAME_OVER) {
+                console.log("DEBUG: handleInput() detected GAME_OVER state, calling restartGame()...");
+                restartGame();
+            }
         }
 
-        // --- Character Selection Logic ---
+        /** Handles character selection click/tap */
         function selectCharacter(characterKey) {
-            if (gameState === STATES.SELECT_CHARACTER) {
-                console.log("Character selected:", characterKey);
-                selectedCharacterData = characters[characterKey];
-                characterSelectionOverlay.classList.remove('visible');
-                startMessageOverlay.classList.add('visible');
-                init();
-            } else { console.log("Character selection ignored, not in SELECT_CHARACTER state."); }
+            if (gameState !== STATES.SELECT_CHARACTER) {
+                console.log("Selection ignored, not in SELECT_CHARACTER state.");
+                return;
+            }
+            console.log("DEBUG: selectCharacter() called with key:", characterKey);
+            selectedCharacterData = characters[characterKey];
+            characterSelectionOverlay.classList.remove('visible');
+            startMessageOverlay.classList.add('visible');
+            init();
         }
 
+        /** Prevents default actions for button touch events */
+        const handleButtonTouch = (event, characterKey) => {
+            event.preventDefault();
+            selectCharacter(characterKey);
+        };
+
+        // --- Assign Event Listeners ---
         selectJuuboButton.addEventListener('click', () => selectCharacter('juubo'));
         selectAvocadoboButton.addEventListener('click', () => selectCharacter('avocadobo'));
+        selectJuuboButton.addEventListener('touchstart', (e) => handleButtonTouch(e, 'juubo'), { passive: false });
+        selectAvocadoboButton.addEventListener('touchstart', (e) => handleButtonTouch(e, 'avocadobo'), { passive: false });
+        startMessageOverlay.addEventListener('mousedown', handleInput);
+        gameOverMessageOverlay.addEventListener('mousedown', handleInput);
+        startMessageOverlay.addEventListener('touchstart', handleInput, { passive: true });
+        gameOverMessageOverlay.addEventListener('touchstart', handleInput, { passive: true });
 
-        // Add general input listeners
-        gameCanvas.addEventListener('mousedown', handleInput);
-        gameCanvas.addEventListener('touchstart', handleInput, { passive: true });
-        window.addEventListener('keydown', (e) => { if (e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); handleInput(); } });
+        let touchStartTriggered = false; // Flag to track touchstart event
 
-         // --- Draw Character Previews ---
-         function drawCharacterPreviews() {
-             console.log("Drawing previews...");
-             const juuboCtx = juuboPreviewCanvas.getContext('2d'); juuboCtx.clearRect(0, 0, juuboPreviewCanvas.width, juuboPreviewCanvas.height);
-             const juuboLoaded = juuboImg.complete && !juuboImg.hasError && juuboImg.naturalWidth > 0;
-             if(juuboLoaded) { juuboCtx.drawImage(juuboImg, 0, 0, juuboPreviewCanvas.width, juuboPreviewCanvas.height); }
-             else { juuboCtx.fillStyle = characters.juubo.fallbackColor; juuboCtx.fillRect(0, 0, juuboPreviewCanvas.width, juuboPreviewCanvas.height); }
+        gameCanvas.addEventListener('mousedown', (e) => {
+            if (!touchStartTriggered) {
+                handleInput();
+            }
+            touchStartTriggered = false; // Reset the flag after mousedown
+        });
 
-             const avocadoCtx = avocadoboPreviewCanvas.getContext('2d'); avocadoCtx.clearRect(0, 0, avocadoboPreviewCanvas.width, avocadoboPreviewCanvas.height);
-             const avocadoLoaded = avocadoboImg.complete && !avocadoboImg.hasError && avocadoboImg.naturalWidth > 0;
-              if(avocadoLoaded) { avocadoCtx.drawImage(avocadoboImg, 0, 0, avocadoboPreviewCanvas.width, avocadoboPreviewCanvas.height); }
-              else { avocadoCtx.fillStyle = characters.avocadobo.fallbackColor; avocadoCtx.fillRect(0, 0, avocadoboPreviewCanvas.width, avocadoboPreviewCanvas.height); }
-         }
+        gameCanvas.addEventListener('touchstart', (e) => {
+            touchStartTriggered = true; // Set the flag on touchstart
+            handleInput();
+        }, { passive: true });
 
-        // --- Initial Setup ---
-        gameState = STATES.LOADING; console.log("Game ready. Initial state:", gameState); drawBackground(); loadImages();
-        const initialLoadTimeout = setTimeout(() => { if (gameState === STATES.LOADING) { console.warn("Initial image processing timeout. Forcing checkImagesReady."); if (!juuboImgReady) { juuboImg.hasError = true; juuboImgReady = true; } if (!avocadoboImgReady) { avocadoboImg.hasError = true; avocadoboImgReady = true; } checkImagesReady(); } }, 7000);
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' || e.code === 'ArrowUp') {
+                e.preventDefault();
+                handleInput();
+            }
+        });
+
+        //----------------------------------------------------------------------
+        // Initial Setup
+        //----------------------------------------------------------------------
+        /** Main game loop function */
+        function gameLoop() {
+            /*console.log("DEBUG: gameLoop() executing. State:", gameState);*/
+            if (gameState !== STATES.PLAYING && gameState !== STATES.GAME_OVER) {
+                console.error("Game loop running in unexpected state:", gameState);
+                gameLoopId = null;
+                return;
+            }
+            ctx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
+            drawBackground();
+            if (gameState === STATES.PLAYING) {
+                updateBird();
+                updatePipes();
+                drawPipes();
+                drawCharacter();
+                checkCollisions();
+                frameCount++;
+            } else {
+                drawCharacter();
+                drawPipes();
+            }
+            if (gameState === STATES.PLAYING || gameState === STATES.GAME_OVER) {
+                gameLoopId = requestAnimationFrame(gameLoop);
+            } else {
+                gameLoopId = null;
+            }
+        }
+
+        // --- Start the game initialization process ---
+        gameState = STATES.LOADING;
+        console.log("Game ready. Initial state:", gameState);
+        drawBackground();
+        loadImages();
+        // Removed the setTimeout fallback for image loading.
 
     </script>
 </body>
