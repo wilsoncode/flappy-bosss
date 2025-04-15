@@ -220,13 +220,24 @@
         const juuboImg = new Image();
         const avocadoboImg = new Image();
 
+        // --- Store base URLs ---
         // --- IMPORTANT: These URLs are likely temporary and may not work reliably. ---
         // --- CORS or other issues might prevent loading. ---
-        juuboImg.src = './juubo.svg';
-        avocadoboImg.src = './avocadobo.svg';
+        const juuboBaseUrl = './juubo.svg';
+        const avocadoboBaseUrl = './avocadobo.svg';
+
+        /** Function to attempt loading images */
+        function loadImages() {
+            const timestamp = Date.now(); // To try and bypass cache
+            console.log("Attempting to load images with timestamp:", timestamp);
+            juuboImg.src = `${juuboBaseUrl}?t=${timestamp}`;
+            // Add a small difference to avocado timestamp just in case
+            avocadoboImg.src = `${avocadoboBaseUrl}?t=${timestamp + 1}`;
+        }
 
         juuboImg.onload = () => {
             console.log("Juubo image loaded.");
+            juuboImg.hasError = false; // Ensure error flag is false on load
             juuboImgReady = true;
             checkImagesReady();
         };
@@ -239,6 +250,7 @@
 
         avocadoboImg.onload = () => {
             console.log("Avocadobo image loaded.");
+            avocadoboImg.hasError = false; // Ensure error flag is false on load
             avocadoboImgReady = true;
             checkImagesReady();
         };
@@ -268,7 +280,8 @@
 
         /** Checks if both images have finished processing (load or error) */
         function checkImagesReady() {
-            if (juuboImgReady && avocadoboImgReady) {
+            // Only proceed if both flags are true
+            if (juuboImgReady && avocadoboImgReady && gameState === STATES.LOADING) {
                 console.log("Both images processed (loaded or failed). Enabling selection.");
                 gameState = STATES.SELECT_CHARACTER; // Move to selection state
                 loadingMessage.textContent = "Select a character to begin!"; // Update message
@@ -276,6 +289,8 @@
                 selectJuuboButton.classList.add('enabled');
                 selectAvocadoboButton.classList.add('enabled');
                 drawCharacterPreviews(); // Draw previews now that images are processed
+            } else {
+                 console.log("checkImagesReady called, but not all images ready or not in LOADING state. Juubo:", juuboImgReady, "Avocado:", avocadoboImgReady, "State:", gameState);
             }
         }
 
@@ -286,6 +301,7 @@
 
             const img = selectedCharacterData.img;
             const fallbackColor = selectedCharacterData.fallbackColor;
+            // Determine Y position based on state
             const currentY = (gameState === STATES.START) ? gameCanvas.height / 2 - BIRD_HEIGHT / 2 : birdY;
 
             // Check if image is loaded successfully
@@ -304,12 +320,13 @@
         // --- Initialization ---
         /** Sets up the game state before play starts */
         function init() {
-             if (gameState !== undefined && gameState !== STATES.GAME_OVER && gameState !== STATES.SELECT_CHARACTER) {
-                console.log("Init prevented, gameState:", gameState); return;
+             // Should only be called after character selection
+             if (gameState !== STATES.SELECT_CHARACTER) {
+                console.log("Init called in unexpected state:", gameState); return;
              }
              console.log("Initializing game board...");
 
-            birdY = gameCanvas.height / 2 - BIRD_HEIGHT / 2;
+            birdY = gameCanvas.height / 2 - BIRD_HEIGHT / 2; // Set initial bird Y
             birdVelocity = 0;
             score = 0;
             pipes = [];
@@ -329,7 +346,6 @@
             frameCount = 0;
 
             // Draw initial state (background, pipes, character at start pos)
-            // Needed because game loop isn't started here anymore
             ctx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
             drawBackground();
             drawPipes(); // Draw initial empty pipes array (draws nothing)
@@ -340,44 +356,26 @@
 
         // --- Game Loop ---
         function gameLoop() {
-             // Should only run when PLAYING or GAME_OVER (to show final state)
              if (gameState !== STATES.PLAYING && gameState !== STATES.GAME_OVER) {
                  console.error("Game loop running in unexpected state:", gameState);
-                 // Optionally stop the loop: cancelAnimationFrame(gameLoopId); gameLoopId = null;
-                 return; // Don't run game logic if not playing/game over
+                 gameLoopId = null; // Stop loop if state is wrong
+                 return;
              }
 
-            // Clear canvas
             ctx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
-
-             // Draw background elements
             drawBackground();
 
             if (gameState === STATES.PLAYING) {
-                // Update game elements
-                updateBird();
-                updatePipes();
-
-                // Draw game elements
-                drawPipes();
-                drawCharacter();
-
-                // Check for collisions
-                checkCollisions();
-
-                // Increment frame count
-                frameCount++;
+                updateBird(); updatePipes(); drawPipes(); drawCharacter(); checkCollisions(); frameCount++;
             } else { // Must be STATES.GAME_OVER
-                 // Draw static final state
-                 drawCharacter();
-                 drawPipes();
+                 drawCharacter(); drawPipes(); // Draw static final state
             }
 
             // Request next frame only if still playing or just ended
             if (gameState === STATES.PLAYING || gameState === STATES.GAME_OVER) {
                  gameLoopId = requestAnimationFrame(gameLoop);
             } else {
-                 gameLoopId = null; // Ensure loop stops if state changes unexpectedly
+                 gameLoopId = null;
             }
         }
 
@@ -473,10 +471,11 @@
                  cancelAnimationFrame(gameLoopId);
                  gameLoopId = null;
              }
-             // Reset image ready flags for next attempt (though unlikely to change)
+             // Reset image ready flags
              juuboImgReady = false;
              avocadoboImgReady = false;
-             juuboImg.hasError = false; // Reset error state
+             // Reset error state potentially stored on image objects
+             juuboImg.hasError = false;
              avocadoboImg.hasError = false;
 
              gameState = STATES.LOADING; // Back to loading state
@@ -492,15 +491,14 @@
              ctx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
              drawBackground();
 
-             // Re-trigger image loading check (in case they load from cache quickly)
-             // Use new Image objects to force re-check if needed, or rely on timeout
-             // For simplicity here, we rely on the initial load/error handlers,
-             // but a robust solution might re-create Image objects.
-             // We'll just call checkImagesReady, though flags are false.
-             // A timeout is added below to handle cases where images are cached.
-             checkImagesReady();
-             // Add a small delay to re-check in case images were cached
-             setTimeout(checkImagesReady, 100);
+             // --- FIX: Trigger image reload ---
+             // Re-assigning the src (with a timestamp to bypass cache)
+             // tells the browser to load the image again, which will
+             // trigger either onload or onerror.
+             loadImages();
+
+             // checkImagesReady() will be called by onload/onerror handlers now.
+             // The setTimeout(checkImagesReady, 100) is removed as it's less necessary.
         }
         /** Ends the game */
         function gameOver() {
@@ -599,13 +597,14 @@
         console.log("Game ready. Initial state:", gameState);
         // Initial background draw
         drawBackground();
-        // Previews and button enabling are handled by checkImagesReady()
+        // Attempt initial image load
+        loadImages();
+        // Previews and button enabling are handled by checkImagesReady() via onload/onerror
 
-        // Add a timeout as a final fallback for image processing,
-        // in case onload/onerror never fire for some reason (e.g., network issue before request starts)
-        setTimeout(() => {
+        // Keep the initial timeout as a safety net for the very first load attempt
+        const initialLoadTimeout = setTimeout(() => {
             if (gameState === STATES.LOADING) {
-                 console.warn("Image processing timeout. Forcing checkImagesReady.");
+                 console.warn("Initial image processing timeout. Forcing checkImagesReady.");
                  // Assume error for any image not yet ready
                  if (!juuboImgReady) { juuboImg.hasError = true; juuboImgReady = true; }
                  if (!avocadoboImgReady) { avocadoboImg.hasError = true; avocadoboImgReady = true; }
