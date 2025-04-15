@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flappy Dino</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f0f9ff; /* Light sky blue background */
+            margin: 0;
+            font-family: 'Poppins', sans-serif;
+            overflow: hidden; /* Hide scrollbars */
+        }
+
+        .game-container {
+            position: relative;
+            border: 5px solid #a0d2eb; /* Soft blue border */
+            border-radius: 15px; /* Rounded corners for the container */
+            overflow: hidden; /* Keep canvas content within borders */
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            background-color: #e0f2fe; /* Lighter blue inside container */
+        }
+
+        canvas {
+            display: block; /* Remove extra space below canvas */
+            background-color: #b3e5fc; /* Slightly darker blue for sky */
+        }
+
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.3); /* Semi-transparent overlay */
+            color: white;
+            text-align: center;
+            font-size: 1.5em;
+            z-index: 10;
+            border-radius: 10px; /* Match container rounding */
+            visibility: hidden; /* Hidden by default */
+            opacity: 0;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+
+        .overlay.visible {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .overlay h2 {
+            margin-bottom: 10px;
+            font-weight: 600;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .overlay p {
+            margin: 5px 0;
+            font-size: 0.8em;
+             text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+        }
+
+        #score {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 2em;
+            font-weight: 600;
+            color: #4a5568; /* Dark gray color */
+            text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.7);
+            z-index: 5;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div id="score">0</div>
+        <canvas id="gameCanvas" width="400" height="600"></canvas>
+        <div id="startMessage" class="overlay visible">
+            <h2>Flappy Dino</h2>
+            <p>Click or Tap to Start</p>
+        </div>
+        <div id="gameOverMessage" class="overlay">
+            <h2>Game Over!</h2>
+            <p>Score: <span id="finalScore">0</span></p>
+            <p>Click or Tap to Restart</p>
+        </div>
+    </div>
+
+    <script>
+        // Get canvas and context
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Get DOM elements
+        const scoreDisplay = document.getElementById('score');
+        const startMessage = document.getElementById('startMessage');
+        const gameOverMessage = document.getElementById('gameOverMessage');
+        const finalScoreDisplay = document.getElementById('finalScore');
+
+        // Game constants
+        const BIRD_WIDTH = 50; // Adjust based on image aspect ratio
+        const BIRD_HEIGHT = 40; // Adjust based on image aspect ratio
+        const PIPE_WIDTH = 70;
+        const PIPE_GAP = 150; // Vertical gap between pipes
+        const GRAVITY = 0.4;
+        const FLAP_STRENGTH = -7; // Negative value for upward movement
+        const PIPE_SPEED = 2.5;
+        const PIPE_SPAWN_RATE = 120; // Frames between pipe spawns
+
+        // Game variables
+        let birdY, birdVelocity, score, pipes, frameCount, gameState;
+
+        // Bird image
+        const birdImg = new Image();
+        // --- IMPORTANT: Replace this URL with the actual URL of the uploaded image ---
+        // You can get this URL by inspecting the network request when the image was uploaded,
+        // or if the platform provides a direct URL after upload.
+        // Using a placeholder for now. If the image doesn't load, a yellow rectangle will be drawn.
+        birdImg.src = './juubo.svg';
+        birdImg.onerror = () => {
+            console.error("Failed to load bird image. Using fallback.");
+            // Fallback drawing if image fails
+            birdImg.hasError = true;
+        };
+
+
+        // Game states
+        const STATES = {
+            START: 'start',
+            PLAYING: 'playing',
+            GAME_OVER: 'gameOver'
+        };
+
+        // --- Initialization ---
+        function init() {
+            birdY = canvas.height / 2 - BIRD_HEIGHT / 2;
+            birdVelocity = 0;
+            score = 0;
+            pipes = [];
+            frameCount = 0;
+            gameState = STATES.START;
+
+            scoreDisplay.textContent = score;
+            startMessage.classList.add('visible');
+            gameOverMessage.classList.remove('visible');
+
+            // Clear any previous game loop
+            if (window.gameLoopId) {
+                cancelAnimationFrame(window.gameLoopId);
+            }
+
+            // Ensure pipes are empty before starting loop
+             pipes = [];
+             frameCount = 0; // Reset frame count for pipe spawning
+
+            // Start game loop only after initialization
+            if (birdImg.complete || birdImg.hasError) { // Start if image loaded or errored
+                 gameLoop();
+            } else {
+                birdImg.onload = gameLoop; // Start loop once image loads
+            }
+        }
+
+        // --- Game Loop ---
+        function gameLoop() {
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+             // Draw background elements (optional, simple example)
+            drawBackground();
+
+
+            if (gameState === STATES.PLAYING) {
+                // Update game elements
+                updateBird();
+                updatePipes();
+
+                // Draw game elements
+                drawPipes(); // Draw pipes behind bird
+                drawBird();
+
+
+                // Check for collisions
+                checkCollisions();
+
+                // Update score display
+                scoreDisplay.textContent = score;
+
+                // Increment frame count for pipe spawning
+                frameCount++;
+
+            } else {
+                 // Draw bird stationary if not playing (but after start)
+                 if(gameState !== STATES.START) {
+                    drawBird(); // Draw bird in its final position
+                 }
+                 drawPipes(); // Draw pipes stationary
+            }
+
+
+            // Request next frame
+            window.gameLoopId = requestAnimationFrame(gameLoop);
+        }
+
+        // --- Drawing Functions ---
+        function drawBird() {
+            if (birdImg.hasError || !birdImg.complete || !birdImg.src || birdImg.naturalWidth === 0) {
+                // Fallback: Draw a yellow rectangle if image didn't load
+                ctx.fillStyle = 'yellow';
+                ctx.fillRect(canvas.width / 4, birdY, BIRD_WIDTH, BIRD_HEIGHT);
+            } else {
+                 // Draw the bird image
+                ctx.drawImage(birdImg, canvas.width / 4, birdY, BIRD_WIDTH, BIRD_HEIGHT);
+            }
+        }
+
+         function drawBackground() {
+            // Simple gradient background
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#a0d2eb'); // Lighter blue top
+            gradient.addColorStop(1, '#e0f2fe'); // Even lighter bottom
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+             // Simple ground
+             ctx.fillStyle = '#86efac'; // Light green
+             ctx.fillRect(0, canvas.height - 30, canvas.width, 30);
+             ctx.fillStyle = '#4ade80'; // Darker green line
+             ctx.fillRect(0, canvas.height - 30, canvas.width, 5);
+        }
+
+
+        function drawPipes() {
+            ctx.fillStyle = '#6ee7b7'; // Mint green for pipes
+             ctx.strokeStyle = '#22c55e'; // Darker green outline
+             ctx.lineWidth = 3;
+
+            pipes.forEach(pipe => {
+                // Draw top pipe
+                ctx.fillRect(pipe.x, 0, PIPE_WIDTH, pipe.topHeight);
+                 ctx.strokeRect(pipe.x, 0, PIPE_WIDTH, pipe.topHeight);
+                 // Draw bottom pipe
+                ctx.fillRect(pipe.x, pipe.topHeight + PIPE_GAP, PIPE_WIDTH, canvas.height - pipe.topHeight - PIPE_GAP);
+                ctx.strokeRect(pipe.x, pipe.topHeight + PIPE_GAP, PIPE_WIDTH, canvas.height - pipe.topHeight - PIPE_GAP);
+
+                 // Add rounded caps (optional visual flair)
+                 drawPipeCap(pipe.x, pipe.topHeight - 10, PIPE_WIDTH); // Top pipe bottom cap
+                 drawPipeCap(pipe.x, pipe.topHeight + PIPE_GAP, PIPE_WIDTH); // Bottom pipe top cap
+
+            });
+        }
+
+         function drawPipeCap(x, y, width) {
+             ctx.fillStyle = '#6ee7b7'; // Match pipe color
+             ctx.strokeStyle = '#22c55e'; // Match pipe outline
+             ctx.lineWidth = 3;
+             ctx.beginPath();
+             ctx.rect(x - 5, y, width + 10, 20); // Slightly wider cap
+             ctx.fill();
+             ctx.stroke();
+         }
+
+        // --- Update Functions ---
+        function updateBird() {
+            birdVelocity += GRAVITY;
+            birdY += birdVelocity;
+
+            // Prevent bird from going off the top
+            if (birdY < 0) {
+                birdY = 0;
+                birdVelocity = 0;
+            }
+        }
+
+        function updatePipes() {
+            // Spawn new pipes
+            if (frameCount % PIPE_SPAWN_RATE === 0) {
+                const minHeight = 50;
+                const maxHeight = canvas.height - PIPE_GAP - minHeight - 30; // Leave space for ground
+                const topHeight = Math.random() * (maxHeight - minHeight) + minHeight;
+                pipes.push({ x: canvas.width, topHeight: topHeight, passed: false });
+            }
+
+            // Move pipes to the left
+            pipes.forEach(pipe => {
+                pipe.x -= PIPE_SPEED;
+            });
+
+            // Remove pipes that are off-screen
+             pipes = pipes.filter(pipe => pipe.x + PIPE_WIDTH > 0);
+
+             // Check for scoring
+             pipes.forEach(pipe => {
+                if (!pipe.passed && pipe.x + PIPE_WIDTH < canvas.width / 4) {
+                    score++;
+                    pipe.passed = true;
+                }
+             });
+        }
+
+        // --- Collision Detection ---
+        function checkCollisions() {
+            const birdX = canvas.width / 4;
+
+            // Ground collision
+            if (birdY + BIRD_HEIGHT > canvas.height - 30) { // Adjusted for ground height
+                gameOver();
+                return;
+            }
+
+            // Pipe collision
+            pipes.forEach(pipe => {
+                // Check horizontal overlap
+                if (birdX < pipe.x + PIPE_WIDTH && birdX + BIRD_WIDTH > pipe.x) {
+                    // Check vertical overlap (collision with top or bottom pipe)
+                    if (birdY < pipe.topHeight || birdY + BIRD_HEIGHT > pipe.topHeight + PIPE_GAP) {
+                        gameOver();
+                        return; // Exit loop early on collision
+                    }
+                }
+            });
+        }
+
+        // --- Game State Management ---
+        function startGame() {
+            if (gameState !== STATES.PLAYING) {
+                init(); // Re-initialize game variables
+                gameState = STATES.PLAYING;
+                startMessage.classList.remove('visible');
+                gameOverMessage.classList.remove('visible');
+                flap(); // Give a little boost at the start
+            }
+        }
+
+        function gameOver() {
+            if (gameState === STATES.GAME_OVER) return; // Prevent multiple calls
+            gameState = STATES.GAME_OVER;
+            finalScoreDisplay.textContent = score;
+            gameOverMessage.classList.add('visible');
+             // Stop the bird immediately upon game over
+             birdVelocity = 0;
+             // Ensure bird doesn't fall through floor after game over visually
+             if (birdY + BIRD_HEIGHT > canvas.height - 30) {
+                 birdY = canvas.height - 30 - BIRD_HEIGHT;
+             }
+        }
+
+        // --- Player Actions ---
+        function flap() {
+            if (gameState === STATES.PLAYING) {
+                 birdVelocity = FLAP_STRENGTH;
+            }
+        }
+
+        // --- Event Listeners ---
+        function handleInput() {
+             if (gameState === STATES.START) {
+                 startGame();
+             } else if (gameState === STATES.PLAYING) {
+                 flap();
+             } else if (gameState === STATES.GAME_OVER) {
+                 // Clicking again restarts the game
+                 startGame();
+             }
+        }
+
+        window.addEventListener('click', handleInput);
+        window.addEventListener('touchstart', handleInput); // For touch devices
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                 handleInput();
+            }
+        });
+
+
+        // --- Initial Setup ---
+        // Wait for the image to potentially load before the first init
+        if (birdImg.complete && birdImg.src && birdImg.naturalWidth !== 0) {
+            init(); // Initialize if image is already cached/loaded
+        } else if (birdImg.hasError) {
+             init(); // Initialize even if image failed
+        } else {
+             birdImg.onload = init; // Initialize once image loads
+             // Add a timeout fallback in case onload never fires (e.g., network issue)
+             setTimeout(() => {
+                 if (gameState === undefined) { // Check if init hasn't run yet
+                     console.warn("Image load timeout, initializing anyway.");
+                     init();
+                 }
+             }, 3000); // Wait 3 seconds
+        }
+
+    </script>
+</body>
+</html>
