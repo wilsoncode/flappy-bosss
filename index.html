@@ -191,7 +191,7 @@
             const PIPE_GAP = 150;
             const GRAVITY = 0.4;
             const FLAP_STRENGTH = -7;
-            const PIPE_SPEED = 2.5;
+            let PIPE_SPEED = 2.5;
             const PIPE_SPAWN_RATE = 120; // Frames between pipe spawns
             const FLAP_COOLDOWN = 250; // Cooldown period in milliseconds
 
@@ -409,6 +409,14 @@
                 }
             }
 
+            /** Adjusts the game difficulty based on the score */
+            function adjustDifficulty() {
+                if (score % 2 === 0 && score !== 0) {
+                    PIPE_SPEED += 0.2; // Increase pipe speed slightly
+                    console.log(`Difficulty increased! New pipe speed: ${PIPE_SPEED}`);
+                }
+            }
+
             /** Moves pipes, spawns new pipes, checks score, removes old pipes */
             function updatePipes() {
                 if (gameState !== STATES.PLAYING) return;
@@ -432,6 +440,7 @@
                         score++;
                         pipe.passed = true;
                         scoreDisplay.textContent = score;
+                        adjustDifficulty(); // Adjust difficulty when score increases
                     }
                 });
                 pipes = pipes.filter(pipe => pipe.x + PIPE_WIDTH > 0);
@@ -523,6 +532,7 @@
                 juuboImg.hasError = false;
                 avocadoboImg.hasError = false;
                 lastFlapTime = 0; // Reset flap time on restart
+                PIPE_SPEED = 2.5; // Reset pipe speed to initial value
                 gameState = STATES.LOADING;
                 characterSelectionOverlay.classList.add('visible');
                 startMessageOverlay.classList.remove('visible');
