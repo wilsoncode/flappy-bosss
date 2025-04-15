@@ -611,8 +611,21 @@
         gameOverMessageOverlay.addEventListener('mousedown', handleInput);
         startMessageOverlay.addEventListener('touchstart', handleInput, { passive: true });
         gameOverMessageOverlay.addEventListener('touchstart', handleInput, { passive: true });
-        gameCanvas.addEventListener('mousedown', handleInput);
-        gameCanvas.addEventListener('touchstart', handleInput, { passive: true });
+
+        let touchStartTriggered = false; // Flag to track touchstart event
+
+        gameCanvas.addEventListener('mousedown', (e) => {
+            if (!touchStartTriggered) {
+                handleInput();
+            }
+            touchStartTriggered = false; // Reset the flag after mousedown
+        });
+
+        gameCanvas.addEventListener('touchstart', (e) => {
+            touchStartTriggered = true; // Set the flag on touchstart
+            handleInput();
+        }, { passive: true });
+
         window.addEventListener('keydown', (e) => {
             if (e.code === 'Space' || e.code === 'ArrowUp') {
                 e.preventDefault();
