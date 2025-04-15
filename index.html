@@ -556,22 +556,10 @@
         //----------------------------------------------------------------------
         // Player Actions
         //----------------------------------------------------------------------
-        /** Makes the character flap upwards, respecting cooldown */
+        /** Makes the character flap upwards */
         function flap() {
-            const now = Date.now(); // Use timestamp for cooldown check
-
-            // Check if enough time has passed since the last flap and game is playing
-            if (now - lastFlapTime < FLAP_COOLDOWN || gameState !== STATES.PLAYING) {
-                // Optional: Log why flap was ignored
-                // if (now - lastFlapTime < FLAP_COOLDOWN) console.log(`Flap ignored: Cooldown active. ${FLAP_COOLDOWN - (now - lastFlapTime)}ms remaining.`);
-                // if (gameState !== STATES.PLAYING) console.log("Flap ignored: Not in PLAYING state.");
-                return;
-            }
-
-            // Execute flap
+            // Execute flap without cooldown
             birdVelocity = FLAP_STRENGTH;
-            lastFlapTime = now; // Record the time of this flap
-            // console.log("DEBUG: flap() executed at", now); // Optional debug log
         }
 
         //----------------------------------------------------------------------
