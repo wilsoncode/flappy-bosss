@@ -435,7 +435,7 @@
 
             /** Adjusts the game difficulty based on the score */
             function adjustDifficulty() {
-                if (score % 2 === 0 && score !== 0) {
+                if (score % 5 === 0 && score !== 0) {
                     PIPE_SPEED += 0.2; // Increase pipe speed slightly
                     console.log(`Difficulty increased! New pipe speed: ${PIPE_SPEED}`);
                 }
