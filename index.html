@@ -644,10 +644,15 @@
             //----------------------------------------------------------------------
             // Player Actions
             //----------------------------------------------------------------------
+            // Add audio element for bird flap sound
+            const flapSound = new Audio('flap-sound.m4a');
+
             /** Makes the character flap upwards */
             function flap() {
-                // Execute flap without cooldown
+                // Reset the audio playback position to ensure it plays every time
+                flapSound.currentTime = 0;
                 birdVelocity = FLAP_STRENGTH;
+                flapSound.play(); // Play the flap sound
             }
 
             //----------------------------------------------------------------------
