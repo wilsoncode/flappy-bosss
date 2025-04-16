@@ -644,16 +644,55 @@
             //----------------------------------------------------------------------
             // Player Actions
             //----------------------------------------------------------------------
-            // Add audio element for bird flap sound
-            const flapSound = new Audio('flap-sound.m4a');
+            // Preload the audio and use Web Audio API for better performance
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            let flapBuffer = null;
+
+            // Load the audio file into a buffer
+            function loadFlapSound() {
+                fetch('flap-sound.m4a')
+                    .then(response => response.arrayBuffer())
+                    .then(data => audioContext.decodeAudioData(data))
+                    .then(buffer => {
+                        flapBuffer = buffer;
+                        console.log('Flap sound loaded successfully.');
+                    })
+                    .catch(error => console.error('Error loading flap sound:', error));
+            }
+
+            // Play the flap sound using the buffer
+            function playFlapSound() {
+                if (flapBuffer) {
+                    const source = audioContext.createBufferSource();
+                    source.buffer = flapBuffer;
+                    source.connect(audioContext.destination);
+                    source.start(0);
+                }
+            }
 
             /** Makes the character flap upwards */
             function flap() {
-                // Reset the audio playback position to ensure it plays every time
-                flapSound.currentTime = 0;
                 birdVelocity = FLAP_STRENGTH;
-                flapSound.play(); // Play the flap sound
+                playFlapSound(); // Use the optimized sound playback
             }
+
+            // Load the flap sound during initialization
+            loadFlapSound();
+
+            // Ensure the AudioContext is resumed on user interaction
+            function resumeAudioContext() {
+                if (audioContext.state === 'suspended') {
+                    audioContext.resume().then(() => {
+                        console.log('AudioContext resumed successfully.');
+                    }).catch(error => {
+                        console.error('Error resuming AudioContext:', error);
+                    });
+                }
+            }
+
+            // Attach event listeners to resume AudioContext on user interaction
+            window.addEventListener('click', resumeAudioContext);
+            window.addEventListener('touchstart', resumeAudioContext, { passive: true });
 
             //----------------------------------------------------------------------
             // Event Handling
